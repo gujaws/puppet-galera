@@ -15,11 +15,26 @@ if [[ $1 == '-h' || $1 == '--help' ]];then
     exit
 fi
 
+# if the disabled file is present, return 503. This allows
+# admins to manually remove a node from a cluster easily.
+if [ -e "/var/tmp/clustercheck.disabled" ]; then
+    # Shell return-code is 1
+    echo -en "HTTP/1.1 503 Service Unavailable\r\n"
+    echo -en "Content-Type: text/plain\r\n"
+    echo -en "Connection: close\r\n"
+    echo -en "Content-Length: 51\r\n"
+    echo -en "\r\n"
+    echo -en "Percona XtraDB Cluster Node is manually disabled.\r\n"
+    sleep 0.1
+    exit 1
+fi
+
 MYSQL_USERNAME="<%= @status_user %>"
 MYSQL_PASSWORD="<%= @status_password %>"
-AVAILABLE_WHEN_DONOR=${3:-0}
+MYSQL_HOST="<%= @status_host %>"
+AVAILABLE_WHEN_DONOR="<%= @available_when_donor %>"
 ERR_FILE="${4:-/dev/null}"
-AVAILABLE_WHEN_READONLY=${5:-1}
+AVAILABLE_WHEN_READONLY="${AVAILABLE_WHEN_READONLY:-<%= @available_when_readonly %>}"
 DEFAULTS_EXTRA_FILE=${6:-/etc/my.cnf}
 
 #Timeout exists for instances where mysqld may be hung
@@ -27,9 +42,9 @@ TIMEOUT=10
 
 if [[ -r $DEFAULTS_EXTRA_FILE ]];then
     MYSQL_CMDLINE="mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE --connect-timeout=$TIMEOUT \
-                    --user=${MYSQL_USERNAME} --password=${MYSQL_PASSWORD}"
+                    --user=${MYSQL_USERNAME} --password=${MYSQL_PASSWORD} --host=${MYSQL_HOST}"
 else
-    MYSQL_CMDLINE="mysql -nNE --connect-timeout=$TIMEOUT --user=${MYSQL_USERNAME} --password=${MYSQL_PASSWORD}"
+    MYSQL_CMDLINE="mysql -nNE --connect-timeout=$TIMEOUT --user=${MYSQL_USERNAME} --password=${MYSQL_PASSWORD} --host=${MYSQL_HOST}"
 fi
 #
 # Perform the query to check the wsrep_local_state

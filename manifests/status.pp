@@ -25,12 +25,27 @@
 #  (optional) Port for cluster check service
 #  Defaults to 9200
 #
+# [*available_when_donor*]
+#  (optional) When set to 1, the node will remain in the cluster
+#  when it enters donor mode. A value of 0 will remove the node
+#  from the cluster.
+#  Defaults to 0
+#
+# [*available_when_readonly*]
+#  (optional) When set to 0, clustercheck will return a 503
+#  Service Unavailable if the node is in the read_only state,
+#  as defined by the "read_only" mysql variable. Values other
+#  than 0 have no effect.
+#  Defaults to -1
+#
 class galera::status (
   $status_password  = 'statuscheck!',
   $status_allow     = '%',
   $status_host      = 'localhost',
   $status_user      = 'clustercheck',
-  $port             = 9200
+  $port             = 9200,
+  $available_when_donor    = 0,
+  $available_when_readonly = -1,
 ) {
 
   mysql_user { "${status_user}@${status_allow}":
@@ -50,6 +65,7 @@ class galera::status (
   file { '/usr/local/bin/clustercheck':
     content => template('galera/clustercheck.erb'),
     mode    => '0755',
+    before  => Anchor['mysql::server::end'],
   }
 
   augeas { 'mysqlchk':
@@ -59,12 +75,16 @@ class galera::status (
       "set /files/etc/services/service-name[port = '${port}'] mysqlchk",
       "set /files/etc/services/service-name[port = '${port}']/protocol tcp",
     ],
+    before  => Anchor['mysql::server::end'],
   }
 
   xinetd::service { 'mysqlchk':
-    server => '/usr/local/bin/clustercheck',
-    port   => $port,
-    user   => 'nobody',
-    flags  => 'REUSE',
+    server                  => '/usr/local/bin/clustercheck',
+    port                    => $port,
+    user                    => 'nobody',
+    flags                   => 'REUSE',
+    log_on_success          => '',
+    log_on_success_operator => '=',
+    before                  => Anchor['mysql::server::end'],
   }
 }
