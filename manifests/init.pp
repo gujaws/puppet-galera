@@ -122,6 +122,7 @@ class galera(
   $galera_package_name              = undef,
   $client_package_name              = undef,
   $package_ensure                   = 'installed',
+  $rhel_mysql_client_repo_hack      = undef,
 )
 {
   if $configure_repo {
@@ -204,7 +205,13 @@ class galera(
     name => $galera::params::client_package_name
   }
 
-  if $galera::params::rhel_mysql_client_repo_hack == true and $::fqdn == $galera_master {
+  if $rhel_mysql_client_repo_hack != undef {
+    $real_hack = $rhel_mysql_client_repo_hack
+  } else {
+    $real_hack = $galera::params::rhel_mysql_client_repo_hack
+  }
+
+  if $real_hack == true and $::fqdn == $galera_master {
     include mysql::client
 
     Class['::galera::repo'] -> Class['mysql::client']
